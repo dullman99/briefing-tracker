@@ -1,3 +1,11 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -7,9 +15,25 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const token = req.body && req.body.token;
+  let token = null;
+
+  // body에서 토큰 추출 (여러 방식 시도)
+  if (req.body && typeof req.body === "object" && req.body.token) {
+    token = req.body.token;
+  } else if (req.body && typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      token = parsed.token;
+    } catch(e) {}
+  }
+
   if (!token) {
-    return res.status(401).json({ error: "토큰 없음" });
+    // 디버그용: body 내용 반환
+    return res.status(401).json({ 
+      error: "토큰 없음",
+      debug_body_type: typeof req.body,
+      debug_body: JSON.stringify(req.body).slice(0, 100)
+    });
   }
 
   const DB_ID = "94ea7057-df22-4272-ad7a-1653e71770de";
