@@ -103,7 +103,7 @@ async function fetchData() {
     const res = await fetch("/api/notion", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${token}`,
+        ""X-Notion-Token": token,`,
         "Content-Type": "application/json"
       }
     });
