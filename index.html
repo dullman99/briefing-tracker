@@ -12,7 +12,7 @@ body { background: #0D1117; font-family: 'Noto Sans KR', -apple-system, sans-ser
 h1 { font-size: 18px; font-weight: 700; color: #F0F6FF; }
 .subtitle { font-size: 12px; color: #6B7A99; margin: 4px 0 16px; }
 .stats { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-.stat { background: #161B2E; padding: 6px 14px; border-radius: 8px; display: flex; align-items: baseline; gap: 6px; }
+.stat { background: #161B2E; padding: 6px 14px; border-radius: 8px; display: flex; align-items: baseline; gap: 6px; border: 1px solid #2A3050; }
 .stat-val { font-size: 18px; font-weight: 700; }
 .stat-label { font-size: 11px; color: #6B7A99; }
 .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -40,25 +40,18 @@ h1 { font-size: 18px; font-weight: 700; color: #F0F6FF; }
 .error-btn { margin-top: 12px; background: #2A1010; border: 1px solid #5A1A1A; color: #F87171; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
 .empty { color: #4B5563; font-size: 13px; padding: 20px; }
 .sync-time { font-size: 11px; color: #4B5563; margin-bottom: 14px; }
-
-/* 토큰 입력 화면 */
 .token-screen { max-width: 420px; margin: 60px auto; }
 .token-screen h2 { font-size: 16px; color: #F0F6FF; margin-bottom: 8px; }
 .token-screen p { font-size: 12px; color: #6B7A99; margin-bottom: 20px; line-height: 1.6; }
 .token-input { width: 100%; background: #161B2E; border: 1px solid #2A3050; color: #E6EDF3; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
 .token-btn { width: 100%; background: #1E2A5E; border: 1px solid #4F6EF7; color: #93AAFF; padding: 10px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
-.token-btn:hover { background: #2A3A7E; }
-.reset-btn { font-size: 11px; color: #4B5563; background: none; border: none; cursor: pointer; margin-top: 16px; }
+.reset-link { font-size: 11px; color: #4B5563; background: none; border: none; cursor: pointer; margin-top: 16px; }
 </style>
 </head>
 <body>
-
 <div id="app"></div>
-
 <script>
-const DB_ID = "94ea7057-df22-4272-ad7a-1653e71770de";
 const STORAGE_KEY = "notion_token";
-
 const PROJECT_COLORS = {
   "CounselFlow 플랫폼": { bg:"#1E3A5F", text:"#60A5FA", border:"#2563EB" },
   "TeachFlow": { bg:"#064E3B", text:"#34D399", border:"#059669" },
@@ -77,32 +70,21 @@ const PROJECT_COLORS = {
 let allItems = [];
 let currentFilter = "전체";
 
-function getToken() {
-  return localStorage.getItem(STORAGE_KEY);
-}
+const getToken = () => localStorage.getItem(STORAGE_KEY);
+const saveToken = t => localStorage.setItem(STORAGE_KEY, t.trim());
+const clearToken = () => { localStorage.removeItem(STORAGE_KEY); renderTokenScreen(); };
 
-function saveToken(t) {
-  localStorage.setItem(STORAGE_KEY, t.trim());
-}
-
-function clearToken() {
-  localStorage.removeItem(STORAGE_KEY);
-  renderTokenScreen();
-}
-
-// 토큰 입력 화면
 function renderTokenScreen() {
   document.getElementById("app").innerHTML = `
     <div class="token-screen">
-      <div style="font-size:24px;margin-bottom:12px">📡</div>
+      <div style="font-size:28px;margin-bottom:12px">📡</div>
       <h2>브리핑 컨텐츠 트래커</h2>
       <p>Notion 개인 액세스 토큰을 입력하세요.<br>
       토큰은 이 기기에만 저장되며 외부로 전송되지 않습니다.<br>
       <a href="https://app.notion.com/developers" target="_blank" style="color:#4F6EF7">notion.com/developers</a> → 개인 액세스 토큰</p>
       <input class="token-input" id="tokenInput" type="password" placeholder="ntn_xxxxxxxxxxxx" />
       <button class="token-btn" onclick="handleTokenSubmit()">연결하기</button>
-      <br>
-      <button class="reset-btn" onclick="clearToken()">토큰 초기화</button>
+      <br><button class="reset-link" onclick="clearToken()">토큰 초기화</button>
     </div>`;
 }
 
@@ -113,51 +95,25 @@ function handleTokenSubmit() {
   fetchData();
 }
 
-function parseItem(page) {
-  const p = page.properties;
-  return {
-    title: p["컨텐츠명"]?.title?.[0]?.plain_text || "(제목없음)",
-    channel: p["채널명"]?.rich_text?.[0]?.plain_text || "",
-    date: p["날짜"]?.date?.start || "",
-    category: p["카테고리"]?.select?.name || "미분류",
-    projects: (p["관련 프로젝트"]?.multi_select || []).map(s => s.name),
-    done: p["반영완료"]?.checkbox || false,
-    link: p["링크"]?.url || null,
-  };
-}
-
 async function fetchData() {
   const token = getToken();
   if (!token) { renderTokenScreen(); return; }
-
   document.getElementById("app").innerHTML = `<div class="loading"><div style="font-size:36px;margin-bottom:16px">⏳</div><div>Notion에서 데이터 불러오는 중...</div></div>`;
-
   try {
-    const items = [];
-    let cursor = null;
-    do {
-      const body = { page_size: 100 };
-      if (cursor) body.start_cursor = cursor;
-      const res = await fetch(`https://api.notion.com/v1/databases/${DB_ID}/query`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        if (res.status === 401) { clearToken(); return; }
-        throw new Error(err.message || `HTTP ${res.status}`);
+    const res = await fetch("/api/notion", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
       }
-      const data = await res.json();
-      data.results.forEach(p => items.push(parseItem(p)));
-      cursor = data.has_more ? data.next_cursor : null;
-    } while (cursor);
-
-    allItems = items.sort((a,b) => b.date.localeCompare(a.date));
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      if (res.status === 401) { clearToken(); return; }
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    allItems = data.items.sort((a,b) => b.date.localeCompare(a.date));
     renderDashboard();
   } catch(e) {
     document.getElementById("app").innerHTML = `
@@ -171,30 +127,26 @@ async function fetchData() {
 }
 
 function renderDashboard() {
-  const immediate = allItems.filter(i => i.category === "즉각반영");
-  const reference = allItems.filter(i => i.category === "참고용");
+  const imm = allItems.filter(i => i.category === "즉각반영");
+  const ref = allItems.filter(i => i.category === "참고용");
   const done = allItems.filter(i => i.done).length;
   const dateGroups = [...new Set(allItems.map(i => i.date.slice(0,10)).filter(Boolean))].sort().reverse();
-
   const statsHtml = [
-    {label:"전체", val:allItems.length, color:"#6B7A99"},
-    {label:"즉각반영", val:immediate.length, color:"#EF4444"},
-    {label:"참고용", val:reference.length, color:"#F59E0B"},
-    {label:"반영완료", val:done, color:"#10B981"},
-  ].map(s => `<div class="stat" style="border:1px solid ${s.color}30"><span class="stat-val" style="color:${s.color}">${s.val}</span><span class="stat-label">${s.label}</span></div>`).join("")
+    {label:"전체",val:allItems.length,color:"#6B7A99"},
+    {label:"즉각반영",val:imm.length,color:"#EF4444"},
+    {label:"참고용",val:ref.length,color:"#F59E0B"},
+    {label:"반영완료",val:done,color:"#10B981"},
+  ].map(s=>`<div class="stat" style="border-color:${s.color}30"><span class="stat-val" style="color:${s.color}">${s.val}</span><span class="stat-label">${s.label}</span></div>`).join("")
   + `<button class="refresh-btn" onclick="fetchData()">↻ 새로고침</button>`;
-
-  const filterOptions = ["전체","즉각반영","참고용",...dateGroups];
-  const filtersHtml = filterOptions.map(f =>
+  const filtersHtml = ["전체","즉각반영","참고용",...dateGroups].map(f=>
     `<button class="filter-btn ${currentFilter===f?'active':''}" onclick="setFilter('${f}')">${f}</button>`
   ).join("");
-
   document.getElementById("app").innerHTML = `
     <div style="margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <span style="font-size:20px">📡</span><h1>브리핑 컨텐츠 트래커</h1>
         <div style="flex:1"></div>
-        <button class="reset-btn" onclick="clearToken()" style="font-size:10px;color:#4B5563;background:none;border:none;cursor:pointer">토큰 변경</button>
+        <button class="reset-link" onclick="clearToken()">토큰 변경</button>
       </div>
       <p class="subtitle">7/11 ~ 7/30 AI 브리핑 전체 · 프로젝트 반영 관리</p>
       <div class="stats">${statsHtml}</div>
@@ -202,71 +154,61 @@ function renderDashboard() {
       <div class="filters">${filtersHtml}</div>
     </div>
     <div id="sections"></div>`;
-
   renderSections();
 }
 
-function setFilter(f) {
-  currentFilter = f;
-  renderDashboard();
-}
+function setFilter(f) { currentFilter = f; renderDashboard(); }
 
 function renderSections() {
-  const filtered = currentFilter === "전체" ? allItems
-    : currentFilter === "즉각반영" ? allItems.filter(i => i.category === "즉각반영")
-    : currentFilter === "참고용" ? allItems.filter(i => i.category === "참고용")
-    : allItems.filter(i => i.date.startsWith(currentFilter));
-
-  const imm = filtered.filter(i => i.category === "즉각반영");
-  const ref = filtered.filter(i => i.category === "참고용");
-
+  const filtered = currentFilter==="전체" ? allItems
+    : currentFilter==="즉각반영" ? allItems.filter(i=>i.category==="즉각반영")
+    : currentFilter==="참고용" ? allItems.filter(i=>i.category==="참고용")
+    : allItems.filter(i=>i.date.startsWith(currentFilter));
   const el = document.getElementById("sections");
-  if (el) el.innerHTML = renderSection("즉각반영","#EF4444","🔴",imm) + renderSection("참고용","#F59E0B","🟡",ref);
-
+  if (el) el.innerHTML =
+    renderSection("즉각반영","#EF4444","🔴",filtered.filter(i=>i.category==="즉각반영")) +
+    renderSection("참고용","#F59E0B","🟡",filtered.filter(i=>i.category==="참고용"));
   document.querySelectorAll(".scroll-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      const target = document.getElementById(btn.dataset.target);
-      if (target) target.scrollBy({ left: btn.dataset.dir === "1" ? 280 : -280, behavior:"smooth" });
+      const t = document.getElementById(btn.dataset.target);
+      if (t) t.scrollBy({ left: btn.dataset.dir==="1"?280:-280, behavior:"smooth" });
     });
   });
 }
 
 function renderSection(title, color, icon, items) {
-  const id = "scroll-" + title;
-  return `
-    <div class="section">
-      <div class="section-header">
-        <span>${icon}</span>
-        <span class="section-title" style="color:${color}">${title}</span>
-        <span class="section-count">${items.length}개</span>
-        <div class="spacer"></div>
-        <button class="scroll-btn" data-target="${id}" data-dir="-1">◀</button>
-        <button class="scroll-btn" data-target="${id}" data-dir="1">▶</button>
-      </div>
-      <div class="cards" id="${id}">
-        ${items.length === 0 ? '<div class="empty">항목 없음</div>' : items.map(renderCard).join("")}
-      </div>
-    </div>`;
+  const id = "scroll-"+title;
+  return `<div class="section">
+    <div class="section-header">
+      <span>${icon}</span>
+      <span class="section-title" style="color:${color}">${title}</span>
+      <span class="section-count">${items.length}개</span>
+      <div class="spacer"></div>
+      <button class="scroll-btn" data-target="${id}" data-dir="-1">◀</button>
+      <button class="scroll-btn" data-target="${id}" data-dir="1">▶</button>
+    </div>
+    <div class="cards" id="${id}">
+      ${items.length===0?'<div class="empty">항목 없음</div>':items.map(renderCard).join("")}
+    </div>
+  </div>`;
 }
 
 function renderCard(item) {
-  const tags = item.projects.map(p => {
-    const c = PROJECT_COLORS[p] || {bg:"#1F2937",text:"#9CA3AF",border:"#374151"};
+  const tags = item.projects.map(p=>{
+    const c=PROJECT_COLORS[p]||{bg:"#1F2937",text:"#9CA3AF",border:"#374151"};
     return `<span class="tag" style="background:${c.bg};color:${c.text};border:1px solid ${c.border}">${p}</span>`;
   }).join("");
-  return `
-    <div class="${item.done?'card done':'card'}">
-      <div class="card-title" title="${item.title.replace(/"/g,'&quot;')}">${item.title}</div>
-      <div class="card-meta">${item.channel} · ${item.date}</div>
-      <div class="card-tags">${tags}</div>
-      <div class="card-footer">
-        <label><input type="checkbox" ${item.done?'checked':''} style="accent-color:#10B981"> ${item.done?'반영완료 ✓':'반영완료'}</label>
-        ${item.link ? `<a href="${item.link}" target="_blank">▶ 보기</a>` : ''}
-      </div>
-    </div>`;
+  return `<div class="${item.done?'card done':'card'}">
+    <div class="card-title" title="${item.title.replace(/"/g,'&quot;')}">${item.title}</div>
+    <div class="card-meta">${item.channel} · ${item.date}</div>
+    <div class="card-tags">${tags}</div>
+    <div class="card-footer">
+      <label><input type="checkbox" ${item.done?'checked':''} style="accent-color:#10B981"> ${item.done?'반영완료 ✓':'반영완료'}</label>
+      ${item.link?`<a href="${item.link}" target="_blank">▶ 보기</a>`:''}
+    </div>
+  </div>`;
 }
 
-// 시작
 const saved = getToken();
 if (saved) { fetchData(); } else { renderTokenScreen(); }
 </script>
