@@ -1,13 +1,13 @@
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Notion-Token");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  const token = req.headers["x-notion-token"];
+  const token = req.body && req.body.token;
   if (!token) {
     return res.status(401).json({ error: "토큰 없음" });
   }

@@ -26,7 +26,7 @@ h1 { font-size: 18px; font-weight: 700; color: #F0F6FF; }
 .scroll-btn { background: #1F2937; border: 1px solid #374151; color: #9CA3AF; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 11px; }
 .spacer { flex: 1; }
 .cards { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; scrollbar-color: #374151 transparent; }
-.card { width: 252px; flex-shrink: 0; background: #1A1F2E; border-radius: 8px; padding: 12px 14px; border: 1px solid #252D44; display: flex; flex-direction: column; gap: 8px; transition: opacity 0.2s; }
+.card { width: 252px; flex-shrink: 0; background: #1A1F2E; border-radius: 8px; padding: 12px 14px; border: 1px solid #252D44; display: flex; flex-direction: column; gap: 8px; }
 .card.done { background: #0F1A0F; border-color: #1A3A1A; opacity: 0.65; }
 .card-title { font-size: 13px; font-weight: 600; color: #EEF0FF; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-meta { font-size: 11px; color: #6B7A99; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -51,7 +51,7 @@ h1 { font-size: 18px; font-weight: 700; color: #F0F6FF; }
 <body>
 <div id="app"></div>
 <script>
-var STORAGE_KEY = "notion_token_v2";
+var STORAGE_KEY = "notion_token_v3";
 var PROJECT_COLORS = {
   "CounselFlow 플랫폼": { bg:"#1E3A5F", text:"#60A5FA", border:"#2563EB" },
   "TeachFlow": { bg:"#064E3B", text:"#34D399", border:"#059669" },
@@ -103,11 +103,10 @@ function fetchData() {
   var xhr = new XMLHttpRequest();
   xhr.open("POST", "/api/notion", true);
   xhr.setRequestHeader("Content-Type", "application/json");
-  xhr.setRequestHeader("X-Notion-Token", token);
   xhr.onload = function() {
     if (xhr.status === 401) { clearToken(); return; }
     if (xhr.status !== 200) {
-      showError("HTTP " + xhr.status + ": " + xhr.responseText);
+      showError("HTTP " + xhr.status + ": " + xhr.responseText.slice(0, 200));
       return;
     }
     try {
@@ -121,7 +120,7 @@ function fetchData() {
     }
   };
   xhr.onerror = function() { showError("네트워크 오류가 발생했습니다."); };
-  xhr.send(JSON.stringify({}));
+  xhr.send(JSON.stringify({ token: token }));
 }
 
 function showError(msg) {
