@@ -15,8 +15,10 @@ h1 { font-size: 18px; font-weight: 700; color: #F0F6FF; }
 .stat { background: #161B2E; padding: 6px 14px; border-radius: 8px; display: flex; align-items: baseline; gap: 6px; }
 .stat-val { font-size: 18px; font-weight: 700; }
 .stat-label { font-size: 11px; color: #6B7A99; }
-.filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
-.filter-btn { font-size: 11px; padding: 3px 10px; border-radius: 12px; cursor: pointer; border: 1px solid #2A3050; background: transparent; color: #6B7A99; }
+.filter-group { margin-bottom: 20px; }
+.filter-label { font-size: 11px; color: #4B5563; margin-bottom: 6px; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-btn { font-size: 11px; padding: 3px 10px; border-radius: 12px; cursor: pointer; border: 1px solid #2A3050; background: transparent; color: #6B7A99; white-space: nowrap; }
 .filter-btn.active { border-color: #4F6EF7; background: #1E2A5E; color: #93AAFF; }
 .refresh-btn { background: #161B2E; border: 1px solid #2A3050; color: #6B7A99; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; }
 .section { margin-bottom: 28px; }
@@ -68,7 +70,8 @@ var PROJECT_COLORS = {
 };
 
 var allItems = [];
-var currentFilter = "전체";
+var categoryFilter = "전체";
+var projectFilter = "전체";
 
 function getToken() { return localStorage.getItem(STORAGE_KEY); }
 function saveToken(t) { localStorage.setItem(STORAGE_KEY, t.trim()); }
@@ -111,13 +114,9 @@ function fetchData() {
     }
     try {
       var data = JSON.parse(xhr.responseText);
-      allItems = data.items.sort(function(a, b) {
-        return b.date.localeCompare(a.date);
-      });
+      allItems = data.items.sort(function(a, b) { return b.date.localeCompare(a.date); });
       renderDashboard();
-    } catch(e) {
-      showError("파싱 오류: " + e.message);
-    }
+    } catch(e) { showError("파싱 오류: " + e.message); }
   };
   xhr.onerror = function() { showError("네트워크 오류가 발생했습니다."); };
   xhr.send(JSON.stringify({ token: token }));
@@ -133,16 +132,29 @@ function showError(msg) {
     '</div>';
 }
 
+function getProjects() {
+  var projects = ["전체"];
+  allItems.forEach(function(item) {
+    item.projects.forEach(function(p) {
+      if (projects.indexOf(p) === -1) projects.push(p);
+    });
+  });
+  return projects;
+}
+
+function getFiltered() {
+  return allItems.filter(function(i) {
+    var catOk = categoryFilter === "전체" || i.category === categoryFilter;
+    var projOk = projectFilter === "전체" || i.projects.indexOf(projectFilter) !== -1;
+    return catOk && projOk;
+  });
+}
+
 function renderDashboard() {
   var imm = allItems.filter(function(i) { return i.category === "즉각반영"; });
   var ref = allItems.filter(function(i) { return i.category === "참고용"; });
   var done = allItems.filter(function(i) { return i.done; }).length;
-  var dates = [];
-  allItems.forEach(function(i) {
-    var d = i.date ? i.date.slice(0,10) : "";
-    if (d && dates.indexOf(d) === -1) dates.push(d);
-  });
-  dates.sort().reverse();
+  var projects = getProjects();
 
   var statsHtml = [
     {label:"전체", val:allItems.length, color:"#6B7A99"},
@@ -153,9 +165,14 @@ function renderDashboard() {
     return '<div class="stat" style="border:1px solid ' + s.color + '30"><span class="stat-val" style="color:' + s.color + '">' + s.val + '</span><span class="stat-label">' + s.label + '</span></div>';
   }).join("") + '<button class="refresh-btn" onclick="fetchData()">↻ 새로고침</button>';
 
-  var filterOptions = ["전체","즉각반영","참고용"].concat(dates);
-  var filtersHtml = filterOptions.map(function(f) {
-    return '<button class="filter-btn' + (currentFilter === f ? ' active' : '') + '" onclick="setFilter(\'' + f + '\')">' + f + '</button>';
+  var catFiltersHtml = ["전체","즉각반영","참고용"].map(function(f) {
+    return '<button class="filter-btn' + (categoryFilter === f ? ' active' : '') + '" onclick="setCategoryFilter(\'' + f + '\')">' + f + '</button>';
+  }).join("");
+
+  var projFiltersHtml = projects.map(function(p) {
+    var c = PROJECT_COLORS[p] || null;
+    var style = (projectFilter === p && c) ? 'border-color:' + c.border + ';background:' + c.bg + ';color:' + c.text : '';
+    return '<button class="filter-btn' + (projectFilter === p ? ' active' : '') + '" style="' + style + '" onclick="setProjectFilter(\'' + p.replace(/'/g, "\\'") + '\')">' + p + '</button>';
   }).join("");
 
   document.getElementById("app").innerHTML =
@@ -168,21 +185,16 @@ function renderDashboard() {
     '<p class="subtitle">7/11 ~ 7/30 AI 브리핑 전체 · 프로젝트 반영 관리</p>' +
     '<div class="stats">' + statsHtml + '</div>' +
     '<div class="sync-time">마지막 동기화: ' + new Date().toLocaleString("ko-KR") + '</div>' +
-    '<div class="filters">' + filtersHtml + '</div>' +
+    '<div class="filter-group"><div class="filter-label">카테고리</div><div class="filters">' + catFiltersHtml + '</div></div>' +
+    '<div class="filter-group"><div class="filter-label">프로젝트</div><div class="filters">' + projFiltersHtml + '</div></div>' +
     '</div>' +
     '<div id="sections"></div>';
 
   renderSections();
 }
 
-function setFilter(f) { currentFilter = f; renderDashboard(); }
-
-function getFiltered() {
-  if (currentFilter === "전체") return allItems;
-  if (currentFilter === "즉각반영") return allItems.filter(function(i) { return i.category === "즉각반영"; });
-  if (currentFilter === "참고용") return allItems.filter(function(i) { return i.category === "참고용"; });
-  return allItems.filter(function(i) { return i.date && i.date.startsWith(currentFilter); });
-}
+function setCategoryFilter(f) { categoryFilter = f; renderDashboard(); }
+function setProjectFilter(f) { projectFilter = f; renderDashboard(); }
 
 function renderSections() {
   var filtered = getFiltered();
