@@ -1,9 +1,5 @@
 export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1mb',
-    },
-  },
+  api: { bodyParser: true },
 };
 
 export default async function handler(req, res) {
@@ -15,25 +11,9 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  let token = null;
-
-  // body에서 토큰 추출 (여러 방식 시도)
-  if (req.body && typeof req.body === "object" && req.body.token) {
-    token = req.body.token;
-  } else if (req.body && typeof req.body === "string") {
-    try {
-      const parsed = JSON.parse(req.body);
-      token = parsed.token;
-    } catch(e) {}
-  }
-
+  const token = req.body && req.body.token ? req.body.token : null;
   if (!token) {
-    // 디버그용: body 내용 반환
-    return res.status(401).json({ 
-      error: "토큰 없음",
-      debug_body_type: typeof req.body,
-      debug_body: JSON.stringify(req.body).slice(0, 100)
-    });
+    return res.status(401).json({ error: "토큰 없음" });
   }
 
   const DB_ID = "89387015-a0e5-4fc8-a25d-647e2953eabb";
@@ -67,7 +47,8 @@ export default async function handler(req, res) {
           category: (p["카테고리"] && p["카테고리"].select) ? p["카테고리"].select.name : "미분류",
           projects: (p["관련 프로젝트"] && p["관련 프로젝트"].multi_select) ? p["관련 프로젝트"].multi_select.map(function(s) { return s.name; }) : [],
           done: (p["반영완료"] && p["반영완료"].checkbox) ? true : false,
-          link: (p["링크"] && p["링크"].url) ? p["링크"].url : null
+          link: (p["링크"] && p["링크"].url) ? p["링크"].url : null,
+          reason: (p["반영 이유"] && p["반영 이유"].rich_text && p["반영 이유"].rich_text[0]) ? p["반영 이유"].rich_text[0].plain_text : ""
         });
       });
       cursor = data.has_more ? data.next_cursor : null;
