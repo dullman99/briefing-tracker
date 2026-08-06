@@ -51,7 +51,8 @@ export default async function handler(req, res) {
           category: (p["카테고리"] && p["카테고리"].select) ? p["카테고리"].select.name : "미분류",
           projects: (p["관련 프로젝트"] && p["관련 프로젝트"].multi_select) ? p["관련 프로젝트"].multi_select.map(function(s) { return s.name; }) : [],
           done: (p["반영완료"] && p["반영완료"].checkbox) ? true : false,
-          link: (p["링크"] && p["링크"].url) ? p["링크"].url : null
+          link: (p["링크"] && p["링크"].url) ? p["링크"].url : null,
+          reason: (p["반영 이유"] && p["반영 이유"].rich_text && p["반영 이유"].rich_text[0]) ? p["반영 이유"].rich_text[0].plain_text : ""
         });
       });
       cursor = data.has_more ? data.next_cursor : null;
